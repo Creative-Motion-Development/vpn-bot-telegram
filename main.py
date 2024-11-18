@@ -51,8 +51,16 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await instruction(query)
 
 # Обработка покупки VPN
+from datetime import datetime
 from payment import generate_payment_link
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+#генерация коротко invoice_id
+def generate_order_id(user_id: int) -> str:
+    current_date = datetime.now()
+    date_part = current_date.strftime("%d%m")  # День и месяц 
+    user_part = str(user_id)[:3]  # Первые три цифры user_id
+    return f"{date_part}{user_part}"
 
 # Обработка покупки VPN
 async def process_purchase(query) -> None:
@@ -66,9 +74,9 @@ async def process_purchase(query) -> None:
     if query.data in tariff_map:
         months, price = tariff_map[query.data]
         description = f"Подписка на VPN на {months} месяц(ев)"
-        
+        order_id = generate_order_id(user_id)
         # Генерируем ссылку на оплату
-        payment_url = generate_payment_link(order_id=f"{user_id}{months}", amount=price, description=description)
+        payment_url = generate_payment_link(order_id=order_id, amount=price, description=description)
         
         # Отправляем сообщение с кнопкой для перехода на оплату
         keyboard = [
