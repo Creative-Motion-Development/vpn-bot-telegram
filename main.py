@@ -1,18 +1,133 @@
+import json
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import payment
 import requests
 
+ALERTS_FILE = 'users/alerts.json'
+USERS_FILE = 'users/users.json'
+ADMIN_ID = 167176936
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+def load_users():
+    try:
+        with open(USERS_FILE, "r") as file:
+            return set(json.load(file))  # Возвращаем множество пользователей
+    except (FileNotFoundError, json.JSONDecodeError):
+        return set()  # Если файл отсутствует или поврежден, возвращаем пустое множество
+
+# Функция для сохранения списка пользователей в JSON-файл
+def save_users(users):
+    with open(USERS_FILE, "w") as file:
+        json.dump(list(users), file)  # Преобразуем множество в список для записи
+
+
+# Сохранение отправленных сообщений
+def save_alerts(alerts):
+    with open(ALERTS_FILE, "w") as file:
+        json.dump(alerts, file)
+
+# Загрузка отправленных сообщений
+def load_alerts():
+    try:
+        with open(ALERTS_FILE, "r") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+    
+
+# Обработка команды /alert (рассылка сообщения)
+async def send_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # Проверяем, что пользователь — администратор
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("У вас нет прав для отправки рассылок.")
+        return
+
+    # Проверяем, что указан текст сообщения
+    if not context.args:
+        await update.message.reply_text("Пожалуйста, укажите сообщение для рассылки. Пример: /alert Текст сообщения")
+        return
+
+    alert_message = " ".join(context.args)  # Формируем текст рассылки
+    users = load_users()  # Загружаем список пользователей
+
+    # Загружаем список всех сообщений
+    alerts = load_alerts()
+    alert_id = len(alerts) + 1  # Уникальный ID сообщения
+
+    # Список для хранения ID отправленных сообщений
+    message_ids = []
+
+    # Отправляем сообщение всем активным пользователям
+    for user in users:
+        try:
+            sent_message = await context.bot.send_message(chat_id=user, text=alert_message)
+            message_ids.append({"chat_id": user, "message_id": sent_message.message_id})
+        except Exception as e:
+            logger.error(f"Ошибка при отправке сообщения пользователю {user}: {e}")
+
+    # Сохраняем информацию о рассылке
+    alerts[str(alert_id)] = {
+        "message": alert_message,
+        "messages": message_ids
+    }
+    save_alerts(alerts)
+
+    # Сообщаем администратору об успешной публикации
+    await update.message.reply_text(f"Сообщение с ID {alert_id} опубликовано!")
+
+
+# Обработка команды /delete_alert <id> (удаление сообщения)
+async def delete_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # Проверяем, что пользователь — администратор
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("У вас нет прав для удаления сообщений.")
+        return
+
+    # Проверяем, что указан ID сообщения
+    if not context.args or not context.args[0].isdigit():
+        await update.message.reply_text("Пожалуйста, укажите ID сообщения. Пример: /delete_alert 1")
+        return
+
+    alert_id = context.args[0]  # ID сообщения
+    alerts = load_alerts()  # Загружаем список всех сообщений
+
+    # Проверяем, существует ли сообщение с таким ID
+    if alert_id not in alerts:
+        await update.message.reply_text(f"Сообщение с ID {alert_id} не найдено.")
+        return
+
+    # Удаляем сообщения из чатов пользователей
+    alert = alerts[alert_id]
+    for msg in alert["messages"]:
+        try:
+            await context.bot.delete_message(chat_id=msg["chat_id"], message_id=msg["message_id"])
+        except Exception as e:
+            logger.error(f"Ошибка при удалении сообщения {msg}: {e}")
+
+    # Удаляем запись из файла
+    del alerts[alert_id]
+    save_alerts(alerts)
+
+    await update.message.reply_text(f"Сообщение с ID {alert_id} успешно удалено!")
 
 # начальное сообщение
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    users = load_users()  # Загружаем список пользователей
+    users.add(user_id)  # Добавляем пользователя
+    save_users(users)  # Сохраняем обновленный список
+    await update.message.reply_text("Добро пожаловать!")  # Ответ пользователю
     await show_main_menu(update)
+    
 
 # Главное меню
 async def show_main_menu(update: Update) -> None:
@@ -215,13 +330,21 @@ async def list_vpn(query) -> None:
         await query.edit_message_text("Не удалось получить список VPN. Попробуйте позже.")
 
 def main() -> None:
-    application = Application.builder().token("1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A").build()
+    # Токен бота
+    bot_token = "1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A"
 
+    # Создаем объект Application
+    application = Application.builder().token(bot_token).build()
+
+    # Добавляем обработчики команд
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("alert", send_alert))
     application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(CallbackQueryHandler(check_balance, pattern='check_balance'))
-    application.add_handler(CallbackQueryHandler(list_vpn, pattern='list_vpn'))
+    application.add_handler(CallbackQueryHandler(check_balance, pattern="check_balance"))
+    application.add_handler(CallbackQueryHandler(list_vpn, pattern="list_vpn"))
+    application.add_handler(CommandHandler("delete_alert", delete_alert))  # Обработчик для удаления сообщения
 
+    # Запускаем бота
     application.run_polling()
 
 if __name__ == "__main__":
