@@ -125,18 +125,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     users = load_users()  # Загружаем список пользователей
     users.add(user_id)  # Добавляем пользователя
     save_users(users)  # Сохраняем обновленный список
-    await update.message.reply_text("Добро пожаловать!")  # Ответ пользователю
+    # await update.message.reply_text("Добро пожаловать!")  # Ответ пользователю
     await show_main_menu(update)
     
 
 # Главное меню
 async def show_main_menu(update: Update) -> None:
     keyboard = [
-        [InlineKeyboardButton("Купить VPN", callback_data='buy_vpn')],
-        [InlineKeyboardButton("Мой профиль", callback_data='my_profile')],
-        [InlineKeyboardButton("Поддержка", callback_data='support')],
-        [InlineKeyboardButton("Пробный период", callback_data='demo_version')],
-        [InlineKeyboardButton("Инструкция к установке", callback_data='instruction')],
+        [InlineKeyboardButton("Купить VPN 🔥", callback_data='buy_vpn')],
+        [InlineKeyboardButton("Мой профиль 👨‍🦰", callback_data='my_profile')],
+        [InlineKeyboardButton("Поддержка ❓", callback_data='support')],
+        [InlineKeyboardButton("Пробный период 🎁", callback_data='demo_version')],
+        [InlineKeyboardButton("Инструкция к установке 📃", callback_data='instruction')],
         
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -191,7 +191,7 @@ async def process_purchase(query) -> None:
         description = f"Подписка на VPN на {months} месяц(ев)"
         order_id = generate_order_id(user_id)
         # Генерируем ссылку на оплату
-        payment_url = generate_payment_link(order_id=order_id, amount=price, description=description)
+        payment_url = generate_payment_link(user_id=user_id, amount=price, description=description)
         
         # Отправляем сообщение с кнопкой для перехода на оплату
         keyboard = [
@@ -329,6 +329,9 @@ async def list_vpn(query) -> None:
     else:
         await query.edit_message_text("Не удалось получить список VPN. Попробуйте позже.")
 
+def run_flask():
+    app.run(host='0.0.0.0', port=5000) 
+
 def main() -> None:
     # Токен бота
     bot_token = "1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A"
@@ -347,5 +350,7 @@ def main() -> None:
     # Запускаем бота
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+
+    # Запускаем Telegram-бота
     main()
