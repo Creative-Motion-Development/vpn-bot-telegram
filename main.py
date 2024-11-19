@@ -133,7 +133,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def show_main_menu(update: Update) -> None:
     keyboard = [
         [InlineKeyboardButton("Купить VPN 🔥", callback_data='buy_vpn')],
-        [InlineKeyboardButton("Мой профиль 👨‍🦰", callback_data='my_profile')],
+        [InlineKeyboardButton("Мои VPN 📚", callback_data='list_vpn')],
         [InlineKeyboardButton("Поддержка ❓", callback_data='support')],
         [InlineKeyboardButton("Пробный период 🎁", callback_data='demo_version')],
         [InlineKeyboardButton("Инструкция к установке 📃", callback_data='instruction')],
@@ -216,14 +216,14 @@ async def show_vpn_options(query) -> None:
 
 
 # Меню "Мой профиль"
-async def show_profile_menu(query) -> None:
-    keyboard = [
-        [InlineKeyboardButton("Узнать баланс", callback_data='check_balance')],
-        [InlineKeyboardButton("Список VPN", callback_data='list_vpn')],
-        [InlineKeyboardButton("Назад", callback_data='back_to_main')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text("Выберите действие:", reply_markup=reply_markup)
+# async def show_profile_menu(query) -> None:
+#     keyboard = [
+#         [InlineKeyboardButton("Узнать баланс", callback_data='check_balance')],
+#         [InlineKeyboardButton("Список VPN", callback_data='list_vpn')],
+#         [InlineKeyboardButton("Назад", callback_data='back_to_main')],
+#     ]
+#     reply_markup = InlineKeyboardMarkup(keyboard)
+#     await query.edit_message_text("Выберите действие:", reply_markup=reply_markup)
 
 async def support_account(query) -> None:
     # Создаем кнопку с ссылкой на @kotashov_dev
@@ -292,21 +292,21 @@ async def demo_version(query) -> None:
     
 
 # Обработка проверки баланса
-async def check_balance(query) -> None:
-    user_id = query.from_user.id
+# async def check_balance(query) -> None:
+#     user_id = query.from_user.id
     
-    # Отправляем POST запрос для получения баланса
-    response = requests.post(
-        "https://site.ru/get-balance",
-        json={"user_id": user_id}
-    )
+#     # Отправляем POST запрос для получения баланса
+#     response = requests.post(
+#         "https://site.ru/get-balance",
+#         json={"user_id": user_id}
+#     )
     
-    if response.status_code == 200:
-        data = response.json()
-        balance = data.get("balance", "Неизвестный баланс")
-        await query.edit_message_text(f"Ваш баланс: {balance} рублей.")
-    else:
-        await query.edit_message_text("Не удалось получить баланс. Попробуйте позже.")
+#     if response.status_code == 200:
+#         data = response.json()
+#         balance = data.get("balance", "Неизвестный баланс")
+#         await query.edit_message_text(f"Ваш баланс: {balance} рублей.")
+#     else:
+#         await query.edit_message_text("Не удалось получить баланс. Попробуйте позже.")
 
 # Обработка списка VPN
 async def list_vpn(query) -> None:
@@ -343,7 +343,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("alert", send_alert))
     application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(CallbackQueryHandler(check_balance, pattern="check_balance"))
+    # application.add_handler(CallbackQueryHandler(check_balance, pattern="check_balance"))
     application.add_handler(CallbackQueryHandler(list_vpn, pattern="list_vpn"))
     application.add_handler(CommandHandler("delete_alert", delete_alert))  # Обработчик для удаления сообщения
 
