@@ -3,10 +3,15 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
+import threading
 
+# Импортируем настройки и функцию для запуска слушателя
+from paylistener import app as pay_listener_app
+
+bot_token = "1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A"
 ALERTS_FILE = 'users/alerts.json'
 USERS_FILE = 'users/users.json'
-ADMIN_ID = 167176936
+ADMIN_ID = [167176936, 771163041]
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -38,14 +43,70 @@ def load_alerts():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-    
+import telegram
 
+# Отправка сообщение по userid
+async def send_telegram_message(user_id, message):
+    """Отправка сообщения в Telegram пользователю."""
+    bot = telegram.Bot(token=bot_token)  # Замените на ваш токен
+    await bot.send_message(chat_id=user_id, text=message)
+    
+    
+# получения конфигов с прослойки
+def get_vpn_config(user_id, tarif):
+    """Отправка запроса на сайт для получения настроек VPN и отправка ответа пользователю."""
+    url = "https://site.ru/get_vpn_config"  # заменить на наш url
+    secret = "1111" # @todo сгенерировать новый
+    
+    # Данные, которые отправляем в запросе
+    data = {
+        "secret": secret,
+        "userId": user_id,
+        "tarif": tarif
+    }
+    
+    try:
+        # Отправка POST запроса на сайт
+        response = requests.post(url, data=data)
+        
+        # Проверка, что запрос прошел успешно
+        if response.status_code == 200:
+            # Если ответ содержит файлы, предполагаем, что они в виде бинарных данных
+            files = response.files
+            if files:
+                # Записываем файлы на диск
+                with open('vpn_config.png', 'wb') as f:
+                    f.write(files['file1'].read())  # Записываем первый файл (png)
+                
+                with open('vpn_config.conf', 'wb') as f:
+                    f.write(files['file2'].read())  # Записываем второй файл (conf)
+                
+                # Отправляем сообщение пользователю
+                success_message = "Отлично, вот ваши настройки!\nСкачайте ваши файлы:\n1. [VPN Config](vpn_config.conf)\n2. [VPN Image](vpn_config.png)"
+                send_telegram_message(user_id, success_message)  # Отправка сообщения
+
+                return "Отлично, вот ваши настройки!"  # Ответ для админа
+            else:
+                error_message = "Не удалось получить файлы, попробуйте позже."
+                send_telegram_message(user_id, error_message)  # Сообщение об ошибке
+                return error_message
+        else:
+            error_message = f"Ошибка при получении данных. Код ответа: {response.status_code}"
+            send_telegram_message(user_id, error_message)  # Сообщение об ошибке
+            return error_message
+    
+    except Exception as e:
+        error_message = f"Произошла ошибка: {str(e)}"
+        send_telegram_message(user_id, error_message)  # Сообщение об ошибке
+        return error_message
+    
+    
 # Обработка команды /alert (рассылка сообщения)
 async def send_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     # Проверяем, что пользователь — администратор
-    if user_id != ADMIN_ID:
+    if user_id not in ADMIN_ID:
         await update.message.reply_text("У вас нет прав для отправки рассылок.")
         return
 
@@ -88,7 +149,7 @@ async def delete_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     # Проверяем, что пользователь — администратор
-    if user_id != ADMIN_ID:
+    if user_id not in ADMIN_ID:
         await update.message.reply_text("У вас нет прав для удаления сообщений.")
         return
 
@@ -156,8 +217,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await show_main_menu(update)
     elif query.data.startswith('buy_'):
         await process_purchase(query)
-    elif query.data == 'my_profile':
-        await show_profile_menu(query)
     elif query.data == 'support':
         await support_account(query)
     elif query.data == 'demo_version':
@@ -181,9 +240,10 @@ def generate_order_id(user_id: int) -> str:
 async def process_purchase(query) -> None:
     user_id = query.from_user.id
     tariff_map = {
-        'buy_1_month': (1, 250),   # 1 месяц, цена 250 рублей
-        'buy_3_months': (3, 450),  # 3 месяца, цена 450 рублей
-        'buy_6_months': (6, 2000)   # 6 месяцев, цена 2000 рублей
+        'buy_1_month': (1, 290),   # 1 месяц, цена 250 рублей
+        'buy_2_month': (1, 520),   # 1 месяц, цена 250 рублей
+        'buy_3_months': (3, 780),  # 3 месяца, цена 450 рублей
+        'buy_6_months': (6, 1500)   # 6 месяцев, цена 2000 рублей
     }
 
     if query.data in tariff_map:
@@ -207,8 +267,9 @@ async def process_purchase(query) -> None:
 async def show_vpn_options(query) -> None:
     keyboard = [
         [InlineKeyboardButton("1 месяц (250₽)", callback_data='buy_1_month')],
-        [InlineKeyboardButton("3 месяца (450₽)", callback_data='buy_3_months')],
-        [InlineKeyboardButton("6 месяцев (2000₽)", callback_data='buy_6_months')],
+        [InlineKeyboardButton("2 месяца (520₽)", callback_data='buy_2_month')],
+        [InlineKeyboardButton("3 месяца (780₽)", callback_data='buy_3_months')],
+        [InlineKeyboardButton("6 месяцев (1500₽)", callback_data='buy_6_months')],
         [InlineKeyboardButton("Назад", callback_data='back_to_main')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -333,8 +394,6 @@ def run_flask():
     app.run(host='0.0.0.0', port=5000) 
 
 def main() -> None:
-    # Токен бота
-    bot_token = "1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A"
 
     # Создаем объект Application
     application = Application.builder().token(bot_token).build()
@@ -346,6 +405,8 @@ def main() -> None:
     # application.add_handler(CallbackQueryHandler(check_balance, pattern="check_balance"))
     application.add_handler(CallbackQueryHandler(list_vpn, pattern="list_vpn"))
     application.add_handler(CommandHandler("delete_alert", delete_alert))  # Обработчик для удаления сообщения
+
+    threading.Thread(target=pay_listener_app.run, kwargs={'host': '0.0.0.0', 'port': 5000}).start()
 
     # Запускаем бота
     application.run_polling()

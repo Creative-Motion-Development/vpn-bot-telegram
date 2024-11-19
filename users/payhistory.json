@@ -4,28 +4,32 @@
         "user_id": 167176936,
         "amount": 250,
         "description": "Подписка на VPN на 1 месяц(ев)",
-        "timestamp": "2024-11-19T11:45:56.093847"
+        "timestamp": "2024-11-19T11:45:56.093847",
+        "status": 0
     },
     {
         "order_id": 2,
         "user_id": 167176936,
         "amount": 250,
         "description": "Подписка на VPN на 1 месяц(ев)",
-        "timestamp": "2024-11-19T11:48:56.599870"
+        "timestamp": "2024-11-19T11:48:56.599870",
+        "status": 0
     },
     {
         "order_id": 3,
         "user_id": 167176936,
         "amount": 250,
         "description": "Подписка на VPN на 1 месяц(ев)",
-        "timestamp": "2024-11-19T11:49:05.116068"
+        "timestamp": "2024-11-19T11:49:05.116068",
+        "status": 0
     },
     {
         "order_id": 4,
         "user_id": 167176936,
         "amount": 250,
         "description": "Подписка на VPN на 1 месяц(ев)",
-        "timestamp": "2024-11-19T11:54:58.951342"
+        "timestamp": "2024-11-19T11:54:58.951342",
+        "status": 0
     },
     {
         "order_id": 5,
@@ -34,5 +38,261 @@
         "description": "Подписка на VPN на 1 месяц(ев)",
         "status": "none",
         "timestamp": "2024-11-19T11:55:11.743931"
+    },
+    {
+        "order_id": 6,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T13:43:02.699290"
+    },
+    {
+        "order_id": 7,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T13:46:51.761549"
+    },
+    {
+        "order_id": 8,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T14:20:56.835489"
+    },
+    {
+        "order_id": 9,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T14:30:36.544124"
+    },
+    {
+        "order_id": 10,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T14:35:05.987562"
+    },
+    {
+        "order_id": 11,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T14:36:08.313880"
+    },
+    {
+        "order_id": 12,
+        "user_id": 167176936,
+        "amount": 450,
+        "description": "Подписка на VPN на 3 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T14:37:27.452728"
+    },
+    {
+        "order_id": 13,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T14:50:49.534930"
+    },
+    {
+        "order_id": 14,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T15:02:12.709751"
+    },
+    {
+        "order_id": 15,
+        "user_id": 167176936,
+        "amount": 250,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:03:05.127412"
+    },
+    {
+        "order_id": 16,
+        "user_id": 167176936,
+        "amount": 450,
+        "description": "Подписка на VPN на 3 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T15:03:08.525828"
+    },
+    {
+        "order_id": 17,
+        "user_id": 167176936,
+        "amount": 1500,
+        "description": "Подписка на VPN на 6 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:18:30.405792"
+    },
+    {
+        "order_id": 18,
+        "user_id": 167176936,
+        "amount": 1500,
+        "description": "Подписка на VPN на 6 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T15:18:37.521344"
+    },
+    {
+        "order_id": 19,
+        "user_id": 167176936,
+        "amount": 520,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:31:31.859657"
+    },
+    {
+        "order_id": 20,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:34:29.098786"
+    },
+    {
+        "order_id": 21,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:34:33.592651"
+    },
+    {
+        "order_id": 22,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:34:36.719780"
+    },
+    {
+        "order_id": 23,
+        "user_id": 167176936,
+        "amount": 520,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:43:22.919156"
+    },
+    {
+        "order_id": 24,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T15:48:30.492275"
+    },
+    {
+        "order_id": 25,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T15:57:04.182872"
+    },
+    {
+        "order_id": 26,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T16:00:13.823638"
+    },
+    {
+        "order_id": 27,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T16:18:28.425541"
+    },
+    {
+        "order_id": 28,
+        "user_id": 167176936,
+        "amount": 520,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T16:32:20.721243"
+    },
+    {
+        "order_id": 29,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:24:25.601541"
+    },
+    {
+        "order_id": 30,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:27:45.799278"
+    },
+    {
+        "order_id": 31,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:31:25.768091"
+    },
+    {
+        "order_id": 32,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:41:46.499375"
+    },
+    {
+        "order_id": 33,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:42:55.734941"
+    },
+    {
+        "order_id": 34,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:43:49.596947"
+    },
+    {
+        "order_id": 35,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:50:08.556217"
+    },
+    {
+        "order_id": 36,
+        "user_id": 167176936,
+        "amount": 290,
+        "description": "Подписка на VPN на 1 месяц(ев)",
+        "status": 0,
+        "timestamp": "2024-11-19T17:57:40.543877"
+    },
+    {
+        "order_id": 37,
+        "user_id": 167176936,
+        "amount": 780,
+        "description": "Подписка на VPN на 3 месяц(ев)",
+        "status": 1,
+        "timestamp": "2024-11-19T17:57:48.159648"
     }
 ]
