@@ -17,7 +17,7 @@ def get_next_order_number():
         return 1  # Если файл отсутствует, это будет первая запись
 
 
-def save_payment_to_json(user_id, amount, description):
+def save_payment_to_json(user_id, amount, description, tarif):
     filepath = "users/payhistory.json"
 
     # Получаем порядковый номер
@@ -30,6 +30,7 @@ def save_payment_to_json(user_id, amount, description):
         "amount": amount,
         "description": description,
         "status": 0,
+        "tarif": tarif,
         "timestamp": datetime.now().isoformat()  # Время создания записи
     }
 
@@ -51,11 +52,11 @@ def save_payment_to_json(user_id, amount, description):
     return order_id  # Возвращаем order_id для использования в InvId
 
 
-def generate_payment_link(user_id, amount, description):
+def generate_payment_link(user_id, amount, description, tarif):
     login = "Easyvpnbot"  # логин в Robokassa
     pass1 = "I93n6SoueLuvYr02dPVl"  # Первый пароль в Robokassa
 
-    order_id = save_payment_to_json(user_id, amount, description)
+    order_id = save_payment_to_json(user_id, amount, description, tarif)
     # Параметры запроса
     params = {
         "MerchantLogin": login,
