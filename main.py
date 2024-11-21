@@ -9,7 +9,8 @@ import random
 # Импортируем настройки и функцию для запуска слушателя
 from paylistener import app as pay_listener_app
 
-bot_token = "1170371697:AAFngUiR70Z5Q0Z-aP0DVtCFyhH5Xe8Kv-A"
+service_host = "https://e315-77-246-99-197.ngrok-free.app"
+bot_token = "7425895674:AAH7PJWE7PgCodh5fxEo3K_udthJdXp4j6g"
 ALERTS_FILE = 'users/alerts.json'
 USERS_FILE = 'users/users.json'
 ADMIN_ID = [167176936, 771163041]
@@ -214,7 +215,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     users.add(user_id)  # Добавляем пользователя
     save_users(users)  # Сохраняем обновленный список
     # await update.message.reply_text("Добро пожаловать!")  # Ответ пользователю
-    await show_main_menu(update)
+    
+    await register_user(update, context)
     
 
 # Главное меню
@@ -233,9 +235,43 @@ async def show_main_menu(update: Update) -> None:
     else:
         await update.message.reply_text("Добро пожаловать! Выберите действие:", reply_markup=reply_markup)
 
+# Регистрируем пользователя
+async def register_user(update, context) -> None:
+
+    #logging.info(update)
+    #logging.info(context)
+    
+    user_id = update.effective_user.id
+    
+    # Отправляем запрос на сервер
+    response = requests.post(
+        f"{service_host}/wp-json/wireguard-service/register-user", 
+        json={
+            "id": update.effective_user.id, 
+            "name": update.effective_user.first_name, 
+            "language": update.effective_user.language_code,
+            "username": update.effective_user.username
+        })
+
+    # Проверяем успешность запроса
+    if response.status_code == 200:
+        data = response.json()
+        
+        logging.info(f"Ответ {data.get("status")}")
+
+        if data.get("status") == "success":
+           await show_main_menu(update)
+        else: 
+           await context.bot.send_message(chat_id=update.message.chat_id, text=data.get("message"))
+    else:
+        # Сообщение об ошибке, если запрос на сервер не удался
+        await context.bot.send_message(chat_id=update.message.chat_id, text="Неизвестная ошибка при регистрации пользователя! Обратитесь к администратору бота.")
+
+
 # Обработка выбора
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
+    
     await query.answer()
     
     if query.data == 'buy_vpn':
@@ -247,7 +283,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif query.data == 'support':
         await support_account(query)
     elif query.data == 'demo_version':
-        await demo_version(query)
+        await demo_version(query, context)
     elif query.data == 'instruction':
         await instruction(query)
 
@@ -276,20 +312,46 @@ async def process_purchase(query) -> None:
     if query.data in tariff_map:
         months, price = tariff_map[query.data]
         description = f"Подписка на VPN на {months} месяц(ев)"
-        order_id = generate_order_id(user_id)
-        tarif = months
-        # Генерируем ссылку на оплату
-        payment_url = generate_payment_link(user_id=user_id, amount=price, description=description, tarif=tarif)
-        
-        # Отправляем сообщение с кнопкой для перехода на оплату
-        keyboard = [
-            [InlineKeyboardButton("Перейти к оплате", url=payment_url)],
-            [InlineKeyboardButton("Назад", callback_data='back_to_main')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(f"Стоимость подписки на {months} месяц(ев): {price} рублей.", reply_markup=reply_markup)
+        #order_id = generate_order_id(user_id)
+
+    logging.info(f"DATA {query.data}")
+
+    # Отправляем запрос на сервер
+    response = requests.post(f"{service_host}/wp-json/wireguard-service/create_order", 
+        json={"id": user_id, 'plan': query.data}
+    )
+    
+    # Проверяем успешность запроса
+    if response.status_code == 200:
+        data = response.json()
+    
+        logging.info(f"Ответ {data.get("status")}")
+
+        if data.get("status") == "success":
+            order_id=data.get("order_id")
+
+            # Генерируем ссылку на оплату
+            payment_url = generate_payment_link(
+                order_id, # ID заказа
+                user_id,  # ID пользователь в телеграм
+                price,    # Стоимость тарифного плана
+                description, # Описание
+                months, # Количестов месяцев (тариф)
+                query.message.chat_id # Chat ID, нужен для отправки ответа с прослойки
+            )
+            
+            # Отправляем сообщение с кнопкой для перехода на оплату
+            keyboard = [
+                [InlineKeyboardButton("Перейти к оплате", url=payment_url)],
+                [InlineKeyboardButton("Назад", callback_data='back_to_main')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(f"Стоимость подписки на {months} месяц(ев): {price} рублей.", reply_markup=reply_markup)
+        else: 
+           await query.edit_message_text({data.get("message")})
+    
     else:
-        await query.edit_message_text("Неверный выбор. Попробуйте снова.")
+        await query.edit_message_text("Произошла неизвестная ошибка при создании заказа! Обратитесь к администратору бота.")
     
     
 # Меню выбора срока подписки VPN
@@ -349,31 +411,32 @@ async def instruction(query) -> None:
     )
     
 
-async def demo_version(query) -> None:
+async def demo_version(query, context) -> None:
+    
     user_id = query.from_user.id
     
     # Отправляем запрос на сервер
-    response = requests.post("https://site.ru/get_free", json={"user_id": user_id})
+    response = requests.post(f"{service_host}/wp-json/wireguard-service/trial", 
+        json={"id": user_id}
+    )
     
     # Проверяем успешность запроса
     if response.status_code == 200:
         data = response.json()
-        message = data.get("message", "Вот ваши файлы:")
-        files = data.get("files", [])  # Предполагается, что сервер вернет список файлов
-        
-        # Отправляем текстовое сообщение пользователю
-        await query.edit_message_text(message)
-        
-        # Проверяем и отправляем файлы, если они есть
-        if files:
-            for file_url in files:
-                await query.message.reply_document(document=file_url)
-        else:
-            await query.message.reply_text("Файлы не найдены.")
+    
+        logging.info(f"Ответ {data.get("status")}")
+
+        if data.get("status") == "success":
+           instruction_url = "https://payway.store/instrukcija-dlja-polzovatelej-po-ustanovke-i-ispolzovaniju-vpn-servisa-na-osnove-wireguard-s-vydachej-kljuchej-cherez-telegram-bota/"  # Замените на нужную вам ссылку
+
+           await query.edit_message_text("Ваш триал успешно активирован!")
+           await context.bot.sendPhoto(chat_id=query.message.chat_id, photo=data.get('qr_code_url'), caption=f"Инструкция, как использовать QR код. Читайте тут: {instruction_url}")
+        else: 
+           await context.bot.send_message(chat_id=query.message.chat_id, text=data.get("message"))
     else:
         # Сообщение об ошибке, если запрос на сервер не удался
-        await query.edit_message_text("Недоступно. Возможно вы уже получали пробную версию, либо свяжитесь с поддержкой")
-    
+        await context.bot.send_message(chat_id=query.message.chat_id, text="Неизвестная ошибка при активации триала! Обратитесь к администратору бота.")
+
     # Кнопка "Назад"
     await query.message.reply_text(
         "Вернуться в главное меню",

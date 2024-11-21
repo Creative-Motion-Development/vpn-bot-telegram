@@ -51,23 +51,27 @@ def save_payment_to_json(user_id, amount, description, tarif):
     print(f"Данные сохранены: {payment_data}")
     return order_id  # Возвращаем order_id для использования в InvId
 
-
-def generate_payment_link(user_id, amount, description, tarif):
+# Генерируем ссылку на оплату
+def generate_payment_link(order_id, user_id, amount, description, plan, chat_id):
     login = "Easyvpnbot"  # логин в Robokassa
     pass1 = "I93n6SoueLuvYr02dPVl"  # Первый пароль в Robokassa
 
-    order_id = save_payment_to_json(user_id, amount, description, tarif)
+    #order_id = save_payment_to_json(user_id, amount, description, plan)
+
     # Параметры запроса
     params = {
         "MerchantLogin": login,
         "OutSum": f"{amount:.2f}",  # Сумма платежа
-        "InvId": order_id,      # Идентификатор заказа (InvId вместо InvId)
+        "InvId": order_id,      # Идентификатор заказа (InvId вместо InvId) - не используется!
         "Description": description, # Описание заказа
+        "Shp_chatid": chat_id,
+        "Shp_userid": user_id,
+        "Shp_plan": plan,
         "IsTest": 1,                # Тестовый режим
     }
     
     # Формируем строку для подписи
-    sign_string = f"{login}:{params['OutSum']}:{params['InvId']}:{pass1}"
+    sign_string = f"{login}:{params['OutSum']}:{params['InvId']}:{pass1}:Shp_chatid={chat_id}:Shp_plan={plan}:Shp_userid={user_id}"
     signature = hashlib.md5(sign_string.encode('utf-8')).hexdigest().upper()  # Подпись в верхнем регистре
 
     # Добавляем подпись к параметрам
