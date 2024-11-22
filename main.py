@@ -9,7 +9,7 @@ import random
 # Импортируем настройки и функцию для запуска слушателя
 from paylistener import app as pay_listener_app
 
-service_host = "https://e315-77-246-99-197.ngrok-free.app"
+service_host = "https://d234-77-246-99-197.ngrok-free.app"
 bot_token = "7425895674:AAH7PJWE7PgCodh5fxEo3K_udthJdXp4j6g"
 ALERTS_FILE = 'users/alerts.json'
 USERS_FILE = 'users/users.json'
@@ -276,8 +276,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     if query.data == 'buy_vpn':
         await show_vpn_options(query)
+    elif query.data == 'list_vpn':
+      await list_vpn(query)
     elif query.data == 'back_to_main':
-        await show_main_menu(update)
+      await show_main_menu(update)
     elif query.data.startswith('buy_'):
         await process_purchase(query)
     elif query.data == 'support':
@@ -464,21 +466,33 @@ async def demo_version(query, context) -> None:
 # Обработка списка VPN
 async def list_vpn(query) -> None:
     user_id = query.from_user.id
+
+    logging.info(f"тест")
     
     # Отправляем POST запрос для получения списка VPN
     response = requests.post(
-        "https://site.ru/get-vpn-list",
-        json={"user_id": user_id}
+        f"{service_host}/wp-json/wireguard-service/vpn-list",
+        json={"id": user_id}
     )
     
     if response.status_code == 200:
         data = response.json()
-        vpn_list = data.get("vpn_list", [])
-        if vpn_list:
-            vpn_message = "Ваши VPN:\n" + "\n".join(vpn_list)
-        else:
-            vpn_message = "У вас нет активных VPN."
-        await query.edit_message_text(vpn_message)
+
+        logging.info(f"Ответ {data.get("status")}")
+
+        if data.get("status") == "success":
+            orders = data.get("orders", [])
+
+            keyboard = []
+            
+            for order in orders:
+                logging.info(f"Order {order}")
+                keyboard.append([InlineKeyboardButton("VPN " + order.get('plan'), url=order.get('qr_code_url'))])
+                
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text("Ваш список VPN: ", reply_markup=reply_markup)    
+        else: 
+           await query.edit_message_text(data.get("message")) 
     else:
         await query.edit_message_text("Не удалось получить список VPN. Попробуйте позже.")
 
