@@ -257,8 +257,6 @@ async def register_user(update, context) -> None:
     if response.status_code == 200:
         data = response.json()
         
-        logging.info(f"Ответ {data.get("status")}")
-
         if data.get("status") == "success":
            await show_main_menu(update)
         else: 
@@ -326,9 +324,7 @@ async def process_purchase(query) -> None:
     # Проверяем успешность запроса
     if response.status_code == 200:
         data = response.json()
-    
-        logging.info(f"Ответ {data.get("status")}")
-
+  
         if data.get("status") == "success":
             order_id=data.get("order_id")
 
@@ -425,8 +421,6 @@ async def demo_version(query, context) -> None:
     # Проверяем успешность запроса
     if response.status_code == 200:
         data = response.json()
-    
-        logging.info(f"Ответ {data.get("status")}")
 
         if data.get("status") == "success":
            instruction_url = "https://payway.store/instrukcija-dlja-polzovatelej-po-ustanovke-i-ispolzovaniju-vpn-servisa-na-osnove-wireguard-s-vydachej-kljuchej-cherez-telegram-bota/"  # Замените на нужную вам ссылку
@@ -477,8 +471,6 @@ async def list_vpn(query) -> None:
     
     if response.status_code == 200:
         data = response.json()
-
-        logging.info(f"Ответ {data.get("status")}")
 
         if data.get("status") == "success":
             orders = data.get("orders", [])
