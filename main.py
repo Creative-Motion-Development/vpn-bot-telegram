@@ -6,16 +6,18 @@ import requests
 import threading
 import asyncio
 import random
+import telegram
 # Импортируем настройки и функцию для запуска слушателя
 from paylistener import app as pay_listener_app
+from helpers import send_telegram_message as send_telegram_message
 
-service_host = "https://d234-77-246-99-197.ngrok-free.app"
+service_host = "https://wgconfigs.cm-wp.com"
 
-# это тестовый токен от gimi_me_vpn 
+# тестовый бот 
 # bot_token = "7425895674:AAH7PJWE7PgCodh5fxEo3K_udthJdXp4j6g"
 
-# - это рабочий токен
-bot_token = "8086987257:AAFRF4z5v2Kv2lE-ZVUC5NWHSSF34GuirkU" 
+# рабочий бот 
+bot_token = "8086987257:AAFRF4z5v2Kv2lE-ZVUC5NWHSSF34GuirkU"
 ALERTS_FILE = 'users/alerts.json'
 USERS_FILE = 'users/users.json'
 ADMIN_ID = [167176936, 771163041]
@@ -50,15 +52,7 @@ def load_alerts():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-import telegram
 
-# Отправка сообщение по userid
-async def send_telegram_message(user_id, message):
-    """Отправка сообщения в Telegram пользователю."""
-    bot = telegram.Bot(token=bot_token)  # Замените на ваш токен
-    await bot.send_message(chat_id=user_id, text=message)
-    
-    
 # получения конфигов с прослойки
 def get_vpn_config(user_id, tarif, invid):
     """Отправка запроса на сайт для получения настроек VPN и отправка ответа пользователю."""
@@ -323,7 +317,7 @@ async def process_purchase(query) -> None:
 
     # Отправляем запрос на сервер
     response = requests.post(f"{service_host}/wp-json/wireguard-service/create_order", 
-        json={"id": user_id, 'plan': query.data}
+        json={"id": user_id, 'plan': query.data, "chat_id": query.message.chat_id}
     )
     
     # Проверяем успешность запроса
@@ -336,13 +330,12 @@ async def process_purchase(query) -> None:
             # Генерируем ссылку на оплату
             payment_url = generate_payment_link(
                 order_id, # ID заказа
-                user_id,  # ID пользователь в телеграм
                 price,    # Стоимость тарифного плана
                 description, # Описание
-                months, # Количестов месяцев (тариф)
-                query.message.chat_id # Chat ID, нужен для отправки ответа с прослойки
             )
-            
+
+            logging.info(f"Ссылка на оплату {payment_url}")
+   
             # Отправляем сообщение с кнопкой для перехода на оплату
             keyboard = [
                 [InlineKeyboardButton("Перейти к оплате", url=payment_url)],
@@ -484,14 +477,27 @@ async def list_vpn(query) -> None:
             
             for order in orders:
                 logging.info(f"Order {order}")
-                keyboard.append([InlineKeyboardButton("VPN " + order.get('plan'), url=order.get('qr_code_url'))])
-                
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text("Ваш список VPN: ", reply_markup=reply_markup)    
+                qr_code_url = order.get('qr_code_url')
+
+                # Проверяем, что URL существует
+                if qr_code_url:
+                    keyboard.append([InlineKeyboardButton("VPN " + order.get('plan'), url=qr_code_url)])
+                else:
+                    logging.error(f"Invalid QR code URL for order {order}")
+            
+            # Добавляем кнопку "Назад"
+            keyboard.append([InlineKeyboardButton("Назад", callback_data='back_to_main')])
+
+            if keyboard:
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text("Ваш список VPN: ", reply_markup=reply_markup)    
+            else:
+                await query.edit_message_text("Список VPN пуст или содержит некорректные URL.")   
         else: 
            await query.edit_message_text(data.get("message")) 
     else:
         await query.edit_message_text("Не удалось получить список VPN. Попробуйте позже.")
+
 
 def run_flask():
     app.run(host='0.0.0.0', port=5000) 

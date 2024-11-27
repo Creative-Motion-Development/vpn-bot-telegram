@@ -3,6 +3,13 @@ from urllib.parse import urlencode
 import os
 from datetime import datetime
 import json
+import logging
+import requests
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 
 #получаем id в соответствии с 
@@ -52,32 +59,28 @@ def save_payment_to_json(user_id, amount, description, tarif):
     return order_id  # Возвращаем order_id для использования в InvId
 
 # Генерируем ссылку на оплату
-def generate_payment_link(order_id, user_id, amount, description, plan, chat_id):
-    login = "Easyvpnbot"  # логин в Robokassa
-    pass1 = "I93n6SoueLuvYr02dPVl"  # Первый пароль в Robokassa
+def generate_payment_link(order_id, amount, description):
+    # Отправляем запрос на сервер
+    response = requests.post(f"https://nicepay.io/public/api/payment", 
+        json={
+            "merchant_id": "674482886a8b3096fab446f2",
+            "secret": "rmYsa-AbFLX-IS38w-m8a99-YGX1n",
+            "order_id": order_id,
+            "amount": amount*100,
+            "customer": "alex.kovalevv@gmail.com",
+            "currency": "RUB",
+            "description": "Top up balance on website"
+        }
+    )
 
-    #order_id = save_payment_to_json(user_id, amount, description, plan)
+     # Проверяем успешность запроса
+    if response.status_code == 200:
+        data = response.json()
 
-    # Параметры запроса
-    params = {
-        "MerchantLogin": login,
-        "OutSum": f"{amount:.2f}",  # Сумма платежа
-        "InvId": order_id,      # Идентификатор заказа (InvId вместо InvId) - не используется!
-        "Description": description, # Описание заказа
-        "Shp_chatid": chat_id,
-        "Shp_userid": user_id,
-        "Shp_plan": plan,
-        "IsTest": 1,                # Тестовый режим
-    }
-    
-    # Формируем строку для подписи
-    sign_string = f"{login}:{params['OutSum']}:{params['InvId']}:{pass1}:Shp_chatid={chat_id}:Shp_plan={plan}:Shp_userid={user_id}"
-    signature = hashlib.md5(sign_string.encode('utf-8')).hexdigest().upper()  # Подпись в верхнем регистре
+        result = data.get("data") 
 
-    # Добавляем подпись к параметрам
-    params["SignatureValue"] = signature
+        logger.info(f"Ответ: {data}")
+    else:
+        logger.info(f"Ошибка: {response.status_code}")    
 
-    # Генерация URL на оплату
-    base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
-    payment_url = f"{base_url}?{urlencode(params)}"
-    return payment_url
+    return result.get('link')
