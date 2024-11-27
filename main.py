@@ -318,7 +318,7 @@ async def process_purchase(query) -> None:
 
     # Отправляем запрос на сервер
     response = requests.post(f"{service_host}/wp-json/wireguard-service/create_order", 
-        json={"id": user_id, 'plan': query.data}
+        json={"id": user_id, 'plan': query.data, "chat_id": query.message.chat_id}
     )
     
     # Проверяем успешность запроса
@@ -331,13 +331,12 @@ async def process_purchase(query) -> None:
             # Генерируем ссылку на оплату
             payment_url = generate_payment_link(
                 order_id, # ID заказа
-                user_id,  # ID пользователь в телеграм
                 price,    # Стоимость тарифного плана
                 description, # Описание
-                months, # Количестов месяцев (тариф)
-                query.message.chat_id # Chat ID, нужен для отправки ответа с прослойки
             )
-            
+
+            logging.info(f"Ссылка на оплату {payment_url}")
+   
             # Отправляем сообщение с кнопкой для перехода на оплату
             keyboard = [
                 [InlineKeyboardButton("Перейти к оплате", url=payment_url)],
