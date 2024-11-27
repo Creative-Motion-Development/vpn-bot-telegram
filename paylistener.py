@@ -81,7 +81,7 @@ def check_signature_result(inv_id: str, out_sum: str, signature: str, password_2
     expected_signature = hashlib.md5(sign_string.encode("utf-8")).hexdigest().upper()
     return signature == expected_signature
 
-from main import send_telegram_message
+from helpers import send_telegram_message as send_telegram_message
 import asyncio
 @app.route("/result", methods=["POST"])
 def result_payment():

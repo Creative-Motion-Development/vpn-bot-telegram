@@ -114,17 +114,17 @@ def get_vpn_config(user_id, tarif, invid):
 
     
 
-async def test_vpn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = random.randint(1, 9999)
-    tarif = 1
-    invid = random.randint(1, 1000)
+# async def test_vpn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = random.randint(1, 9999)
+#     tarif = 1
+#     invid = random.randint(1, 1000)
 
-    # Выполняем синхронную функцию get_vpn_config в отдельном потоке
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, get_vpn_config, user_id, tarif, invid)
+#     # Выполняем синхронную функцию get_vpn_config в отдельном потоке
+#     loop = asyncio.get_event_loop()
+#     result = await loop.run_in_executor(None, get_vpn_config, user_id, tarif, invid)
 
-    # Отправляем результат в чат
-    await update.message.reply_text(result)
+#     # Отправляем результат в чат
+#     await update.message.reply_text(result)
 
 
     
@@ -374,7 +374,6 @@ async def show_vpn_options(query) -> None:
 #     await query.edit_message_text("Выберите действие:", reply_markup=reply_markup)
 
 async def support_account(query) -> None:
-    # Создаем кнопку с ссылкой на @kotashov_dev
     keyboard = [
         [InlineKeyboardButton("Связаться с поддержкой", url="https://t.me/kotashov_dev")],
         [InlineKeyboardButton("Назад", callback_data='back_to_main')]
@@ -390,7 +389,7 @@ async def support_account(query) -> None:
 # Функция для отправки ссылки на инструкцию
 async def instruction(query) -> None:
     # url
-    instruction_url = "https://payway.store/instrukcija-dlja-polzovatelej-po-ustanovke-i-ispolzovaniju-vpn-servisa-na-osnove-wireguard-s-vydachej-kljuchej-cherez-telegram-bota/"  # Замените на нужную вам ссылку
+    instruction_url = "https://payway.store/vpn/"  # Замените на нужную вам ссылку
 
     # Создаем кнопку-ссылку
     keyboard = [
@@ -421,7 +420,7 @@ async def demo_version(query, context) -> None:
         data = response.json()
 
         if data.get("status") == "success":
-           instruction_url = "https://payway.store/instrukcija-dlja-polzovatelej-po-ustanovke-i-ispolzovaniju-vpn-servisa-na-osnove-wireguard-s-vydachej-kljuchej-cherez-telegram-bota/"  # Замените на нужную вам ссылку
+           instruction_url = "https://payway.store/vpn/"  # Замените на нужную вам ссылку
 
            await query.edit_message_text("Ваш триал успешно активирован!")
            await context.bot.sendPhoto(chat_id=query.message.chat_id, photo=data.get('qr_code_url'), caption=f"Инструкция, как использовать QR код. Читайте тут: {instruction_url}")
@@ -514,7 +513,7 @@ def main() -> None:
     # application.add_handler(CallbackQueryHandler(check_balance, pattern="check_balance"))
     application.add_handler(CallbackQueryHandler(list_vpn, pattern="list_vpn"))
     application.add_handler(CommandHandler("delete_alert", delete_alert))  # Обработчик для удаления сообщения
-    application.add_handler(CommandHandler("test_vpn", test_vpn_command))
+    # application.add_handler(CommandHandler("test_vpn", test_vpn_command))
 
     threading.Thread(target=pay_listener_app.run, kwargs={'host': '0.0.0.0', 'port': 5000}).start()
 
