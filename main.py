@@ -10,7 +10,12 @@ import random
 from paylistener import app as pay_listener_app
 
 service_host = "https://d234-77-246-99-197.ngrok-free.app"
-bot_token = "7425895674:AAH7PJWE7PgCodh5fxEo3K_udthJdXp4j6g"
+
+# это тестовый токен от gimi_me_vpn 
+# bot_token = "7425895674:AAH7PJWE7PgCodh5fxEo3K_udthJdXp4j6g"
+
+# - это рабочий токен
+bot_token = "8086987257:AAFRF4z5v2Kv2lE-ZVUC5NWHSSF34GuirkU" 
 ALERTS_FILE = 'users/alerts.json'
 USERS_FILE = 'users/users.json'
 ADMIN_ID = [167176936, 771163041]
