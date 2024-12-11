@@ -1,7 +1,7 @@
 import json
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import MessageHandler, filters, CallbackContext, Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telegram.ext import MessageHandler, filters, CallbackContext, Application, CommandHandler, CallbackQueryHandler, ContextTypes, PreCheckoutQueryHandler
 import requests
 import threading
 import string
@@ -260,8 +260,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         # Если пользователя нет в списке, ведем его на регистрацию
         await register_user(update, context)
-        # users.add(user_id)  # Добавляем пользователя
-        # save_users(users)  # Сохраняем обновленный список
+        users.add(user_id)  # Добавляем пользователя
+        save_users(users)  # Сохраняем обновленный список
     
 
 # Главное меню
@@ -315,6 +315,58 @@ async def register_user(update, context) -> None:
         await context.bot.send_message(chat_id=update.message.chat_id, text="Неизвестная ошибка при регистрации пользователя! Обратитесь к администратору бота.")
 
 
+async def buy(chat_id: int, context: CallbackContext, months: int, price: int):
+    title = "Подписка StartVPN"
+    description = f"Безлимитный доступ на {months} месяц(ев). Локация: Европа"
+    payload = f"vpn_subscription_{months}"  # Уникальный payload для идентификации платежа
+    currency = "XTR"  # Звёзды
+    prices = [LabeledPrice(f"StartVPN ({months} мес.)", price)]  # Цена указывается в звёздах
+
+    try:
+        await context.bot.send_invoice(
+            chat_id=chat_id,
+            title=title,
+            description=description,
+            payload=payload,
+            provider_token='',  # Для XTR токен не нужен
+            currency=currency,
+            prices=prices,
+            start_parameter="start_vpn_subscription",
+        )
+        logging.info(f"Счёт отправлен: {title}, {price} XTR.")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке счёта: {e}")
+        raise e  # Генерируем исключение, чтобы оно обрабатывалось выше
+
+
+
+async def precheckout_callback(update: Update, context: CallbackContext):
+    query = update.pre_checkout_query
+    if query.invoice_payload != 'Custom-Payload':
+        await query.answer(ok=False, error_message="Что-то пошло не так...")
+    else:
+        await query.answer(ok=True)
+
+async def successful_payment_callback(update: Update, context: CallbackContext):
+    # Получаем информацию о платеже
+    payment = update.message.successful_payment
+    telegram_payment_charge_id = payment.telegram_payment_charge_id
+    user_id = update.message.from_user.id  # Получаем ID пользователя
+    months = payment.invoice_payload.split("_")[2]  # Извлекаем количество месяцев из payload (если это часть уникального payload)
+
+    # Ответ пользователю
+    await update.message.reply_text(f"Платеж успешно выполнен! Ваш ID: {telegram_payment_charge_id}")
+
+    # Вызываем функцию для генерации конфигурации VPN
+    try:
+        await generate_vpn_config(user_id, months, update)
+        logging.info(f"VPN конфигурация сгенерирована для пользователя {user_id} на {months} месяцев.")
+    except Exception as e:
+        logging.error(f"Ошибка при генерации конфигурации VPN для пользователя {user_id}: {e}")
+        await update.message.reply_text("Произошла ошибка при создании конфигурации VPN. Пожалуйста, попробуйте позже.")
+
+
+
 
 # Обработка выбора
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -329,7 +381,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif query.data == 'back_to_main':
       await show_main_menu(update)
     elif query.data.startswith('buy_'):
-        await process_purchase(query)
+        await process_purchase(query, context)
     elif query.data == 'support':
         await support_account(query)
     elif query.data == 'demo_version':
@@ -352,64 +404,55 @@ def generate_order_id(user_id: int) -> str:
     return f"{date_part}{user_part}"
 
 # Обработка покупки VPN
-async def process_purchase(query) -> None:
+
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+import logging
+
+async def process_purchase(query, context: CallbackContext) -> None:
     user_id = query.from_user.id
+
+    # Карта тарифов
     tariff_map = {
-        'buy_1_month': (1, 290),   # 1 месяц, цена 250 рублей
-        'buy_2_month': (2, 520),   # 2 месяц, цена 250 рублей
-        'buy_3_months': (3, 780),  # 3 месяца, цена 450 рублей
-        'buy_6_months': (6, 1500)   # 6 месяцев, цена 2000 рублей
+        'buy_1_month': (1, 150, 150),
+        'buy_2_month': (2, 300, 300),
+        'buy_3_months': (3, 490, 490),
+        'buy_6_months': (6, 880, 880),
     }
 
-    if query.data in tariff_map:
-        months, price = tariff_map[query.data]
-        description = f"Подписка на VPN на {months} месяц(ев)"
-        #order_id = generate_order_id(user_id)
+    # Проверяем, что выбранный тариф существует
+    if query.data not in tariff_map:
+        await query.edit_message_text("Выбранный тариф не найден. Пожалуйста, попробуйте снова.")
+        return
 
-    logging.info(f"DATA {query.data}")
+    # Получаем параметры тарифа
+    months, price, stars = tariff_map[query.data]
+    description = f"Подписка на VPN на {months} месяц(ев)"
 
-    # Отправляем запрос на сервер
-    response = requests.post(f"{service_host}/wp-json/wireguard-service/create_order", 
-        json={"id": user_id, 'plan': query.data, "chat_id": query.message.chat_id}
-    )
-    
-    # Проверяем успешность запроса
-    if response.status_code == 200:
-        data = response.json()
-  
-        if data.get("status") == "success":
-            order_id=data.get("order_id")
+    logging.info(f"Пользователь {user_id} выбрал тариф: {query.data} на {months} месяц(ев) за {price} рублей или {stars} звёзд.")
 
-            # Генерируем ссылку на оплату
-            payment_url = generate_payment_link(
-                order_id, # ID заказа
-                price,    # Стоимость тарифного плана
-                description, # Описание
-            )
+    # Вызов функции `buy` для отправки счёта
+    try:
+        chat_id = query.message.chat_id  # Получаем ID чата из объекта CallbackQuery
+        await buy(
+            chat_id=chat_id,
+            context=context,
+            months=months,
+            price=price,
+        )
+        await query.answer()  # Закрываем callback-запрос
+    except Exception as e:
+        logging.exception("Ошибка при вызове функции buy")
+        await query.edit_message_text("Произошла системная ошибка! Пожалуйста, попробуйте позже.")
 
-            logging.info(f"Ссылка на оплату {payment_url}")
-   
-            # Отправляем сообщение с кнопкой для перехода на оплату
-            keyboard = [
-                [InlineKeyboardButton("Перейти к оплате", url=payment_url)],
-                [InlineKeyboardButton("Назад", callback_data='back_to_main')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(f"Стоимость подписки на {months} месяц(ев): {price} рублей.", reply_markup=reply_markup)
-        else: 
-           await query.edit_message_text({data.get("message")})
-    
-    else:
-        await query.edit_message_text("Произошла неизвестная ошибка при создании заказа! Обратитесь к администратору бота.")
-    
-    
+
+
 # Меню выбора срока подписки VPN
 async def show_vpn_options(query) -> None:
     keyboard = [
-        [InlineKeyboardButton("1 месяц (290₽)", callback_data='buy_1_month')],
-        [InlineKeyboardButton("2 месяца (520₽)", callback_data='buy_2_month')],
-        [InlineKeyboardButton("3 месяца (780₽)", callback_data='buy_3_months')],
-        [InlineKeyboardButton("6 месяцев (1500₽)", callback_data='buy_6_months')],
+        [InlineKeyboardButton("1 месяц (150⭐)", callback_data='buy_1_month')],
+        [InlineKeyboardButton("2 месяца (300⭐)", callback_data='buy_2_month')],
+        [InlineKeyboardButton("3 месяца (450⭐)", callback_data='buy_3_months')],
+        [InlineKeyboardButton("6 месяцев (880⭐)", callback_data='buy_6_months')],
         [InlineKeyboardButton("Назад", callback_data='back_to_main')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -507,6 +550,50 @@ async def demo_version(query, context) -> None:
 #     else:
 #         await query.edit_message_text("Не удалось получить баланс. Попробуйте позже.")
 
+
+
+async def generate_vpn_config(user_id: int, months: int, query):
+    # Формируем запрос для создания VPN-конфигурации
+    logging.info(f"Генерация VPN-конфигурации для пользователя {user_id} на {months} месяцев.")
+    
+    # Отправляем POST запрос для создания конфигурации VPN
+    response = requests.post(
+        f"{service_host}/wp-json/wireguard-service/generate-config",
+        json={"id": user_id, "months": months}
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+
+        if data.get("status") == "success":
+            vpn_config = data.get("vpn_config")  # Получаем конфигурацию
+            qr_code_url = data.get("qr_code_url")  # Получаем URL для QR-кода
+            
+            if vpn_config and qr_code_url:
+                # Отправляем пользователю конфигурацию и QR-код
+                keyboard = [
+                    [InlineKeyboardButton("Скачать конфигурацию", url=vpn_config)],
+                    [InlineKeyboardButton("QR код", url=qr_code_url)],
+                    [InlineKeyboardButton("Назад", callback_data='back_to_main')]
+                ]
+                
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text(
+                    f"Конфигурация VPN на {months} месяц(ев) создана успешно. Используйте конфигурацию или сканируйте QR-код.",
+                    reply_markup=reply_markup
+                )
+            else:
+                logging.error("Не удалось получить конфигурацию или QR-код.")
+                await query.edit_message_text("Произошла ошибка при создании конфигурации VPN. Попробуйте позже.")
+        else:
+            # Обработка ошибок, если статус не 'success'
+            error_message = data.get("message", "Неизвестная ошибка.")
+            await query.edit_message_text(f"Ошибка: {error_message}")
+    else:
+        logging.error("Не удалось отправить запрос на создание конфигурации VPN.")
+        await query.edit_message_text("Не удалось создать конфигурацию VPN. Попробуйте позже.")
+
+
 # Обработка списка VPN
 async def list_vpn(query) -> None:
     user_id = query.from_user.id
@@ -549,6 +636,64 @@ async def list_vpn(query) -> None:
            await query.edit_message_text(data.get("message")) 
     else:
         await query.edit_message_text("Не удалось получить список VPN. Попробуйте позже.")
+        
+
+import requests
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+
+async def get_vpn_from_promo(months: int, user_id: int, update, context) -> None:
+    try:
+        # Отправляем запрос к сервису
+        response = requests.post(
+            f"{service_host}/wp-json/wireguard-service/promo-vpn",
+            json={"id": user_id, "months": months}
+        )
+
+        # Проверяем успешность запроса
+        if response.status_code == 200:
+            response_data = response.json()  # Парсим JSON-ответ
+            status = response_data.get("status")  # Получаем статус
+            
+            if status == "success":  # Успешный статус
+                # Проверяем, содержит ли ответ изображение
+                image_url = response_data.get("qr_code")  # Ожидаем URL изображения QR-кода
+                if not image_url:
+                    raise Exception("Похоже возникли проблему, напишите в поддежку для помощи.")
+
+                # Скачиваем изображение QR-кода
+                qr_image_response = requests.get(image_url)
+                if qr_image_response.status_code != 200:
+                    raise Exception("Не удалось загрузить изображение QR-кода.")
+
+                # Отправляем сообщение с изображением и кнопками
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Инструкция", url='https://wgconfigs.cm-wp.com/'),
+                        InlineKeyboardButton("Главное меню", callback_data="back_to_main")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                # Загружаем изображение в виде InputMediaPhoto
+                qr_image = qr_image_response.content
+                await context.bot.send_photo(
+                    chat_id=update.message.chat_id,
+                    photo=qr_image,
+                    caption=f"Поздравляем, ваш промокод активирован! Вот ваш QR-код на {months} месяц(а).",
+                    reply_markup=reply_markup
+                )
+            else:
+                raise Exception(f"Ошибка активации VPN: статус ответа - {status}")
+        else:
+            raise Exception(f"Ошибка запроса: код ответа {response.status_code}, сообщение: {response.text}")
+
+    except requests.RequestException as e:
+        # Обрабатываем ошибки сети или запроса
+        await update.message.reply_text(f"Ошибка сети или запроса: {e}")
+    except Exception as e:
+        # Обрабатываем общие ошибки
+        await update.message.reply_text(f"Произошла ошибка: {e}")
+
 
 def generate_random_promo(length=8):
     """Генерирует случайный промокод длиной length, состоящий из букв и цифр."""
@@ -612,12 +757,14 @@ async def promocode_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def handle_promocode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик текста с промокодом."""
     promocode = update.message.text.strip()
+    user_id = update.effective_user.id  # Получаем ID пользователя
 
     try:
         # Чтение промокодов из файла
         with open(PROMOS_FILE, "r") as file:
             promos = json.load(file)
 
+        # Проверяем наличие промокода
         if promocode in promos:
             months = promos[promocode]  # Количество месяцев для активации
 
@@ -627,16 +774,24 @@ async def handle_promocode(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 json.dump(promos, file)
 
             # Вызываем функцию для активации VPN
-            get_vpn(months)
+            get_vpn_from_promo(months, user_id)  # Передаём количество месяцев и ID пользователя
 
-            # Уведомляем пользователя о успешной активации
+            # Уведомляем пользователя об успешной активации
             await update.message.reply_text(f"Промокод успешно активирован! Вам предоставлен VPN на {months} месяц(а).")
         else:
             # Если промокод не найден
             await update.message.reply_text("Неверный промокод. Пожалуйста, попробуйте ещё раз.")
 
+    except FileNotFoundError:
+        # Если файл с промокодами не найден
+        await update.message.reply_text("Файл с промокодами не найден. Обратитесь к администратору.")
+    except json.JSONDecodeError:
+        # Если файл повреждён
+        await update.message.reply_text("Ошибка в файле с промокодами. Обратитесь к администратору.")
     except Exception as e:
+        # Прочие ошибки
         await update.message.reply_text(f"Ошибка при обработке промокода: {e}")
+
 
 promocode_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_promocode)
 
@@ -658,6 +813,9 @@ def main() -> None:
     application.add_handler(CommandHandler('show_users', show_users))
     application.add_handler(CommandHandler("generate_promo", generate_promo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_promocode))  # Обработчик промокодов
+    application.add_handler(CommandHandler("buy", buy))
+    application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
 
     # application.add_handler(CommandHandler("test_vpn", test_vpn_command))
 
