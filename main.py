@@ -94,79 +94,6 @@ def load_alerts():
         return {}
 
 
-# получения конфигов с прослойки
-def get_vpn_config(user_id, tarif, invid):
-    """Отправка запроса на сайт для получения настроек VPN и отправка ответа пользователю."""
-    url = "https://site.ru/get_vpn_config"  # заменить на наш url
-    secret = "1111"  # @todo сгенерировать новый
-
-    # Данные, которые отправляем в запросе
-    data = {
-        "inv_id": invid,
-        "secret": secret,
-        "userId": user_id,
-        "tarif": tarif
-    }
-
-    try:
-        # Отправка POST запроса на сайт
-        response = requests.post(url, data=data)
-        
-        # Проверка, что запрос прошел успешно
-        if response.status_code == 200:
-            # Проверяем, есть ли файлы в ответе
-            files = response.files  # Предполагается, что файлы передаются в response.files
-            if files:
-                file_links = []  # Список для хранения имен файлов
-
-                # Обрабатываем каждый файл
-                for file_key, file_obj in files.items():
-                    file_name = file_obj.filename  # Получаем имя файла
-                    with open(file_name, 'wb') as f:
-                        f.write(file_obj.read())  # Сохраняем файл на диск
-                    file_links.append(file_name)
-
-                # Формируем сообщение для пользователя
-                success_message = (
-                    "Поздравляем с покупкой! Вот ваши файлы:\n" +
-                    "\n".join([f"• [{file}](/{file})" for file in file_links])  # Генерация ссылок
-                )
-
-                # Добавляем кнопку "Инструкция по установке"
-                instructions_button = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Инструкция по установке", url="https://site.ru/instructions")]]
-                )
-
-                send_telegram_message(user_id, success_message, reply_markup=instructions_button)  # Отправка сообщения
-                return "Файлы успешно отправлены пользователю."
-            else:
-                error_message = "Файлы не найдены, попробуйте позже."
-                send_telegram_message(user_id, error_message)  # Сообщение об ошибке
-                return error_message
-        else:
-            error_message = f"Ошибка при получении данных. Код ответа: {response.status_code}"
-            send_telegram_message(user_id, error_message)  # Сообщение об ошибке
-            return error_message
-
-    except Exception as e:
-        error_message = f"Произошла ошибка: {str(e)}"
-        send_telegram_message(user_id, error_message)  # Сообщение об ошибке
-        return error_message
-
-    
-
-# async def test_vpn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     user_id = random.randint(1, 9999)
-#     tarif = 1
-#     invid = random.randint(1, 1000)
-
-#     # Выполняем синхронную функцию get_vpn_config в отдельном потоке
-#     loop = asyncio.get_event_loop()
-#     result = await loop.run_in_executor(None, get_vpn_config, user_id, tarif, invid)
-
-#     # Отправляем результат в чат
-#     await update.message.reply_text(result)
-
 
     
 # Обработка команды /alert (рассылка сообщения)
@@ -342,10 +269,11 @@ async def buy(chat_id: int, context: CallbackContext, months: int, price: int):
 
 async def precheckout_callback(update: Update, context: CallbackContext):
     query = update.pre_checkout_query
-    if query.invoice_payload != 'Custom-Payload':
-        await query.answer(ok=False, error_message="Что-то пошло не так...")
+    if query.invoice_payload.startswith("vpn_subscription_"):
+        await query.answer(ok=True)  # Успешно подтверждаем предоплату
     else:
-        await query.answer(ok=True)
+        await query.answer(ok=False, error_message="Что-то пошло не так...")
+
 
 async def successful_payment_callback(update: Update, context: CallbackContext):
     # Получаем информацию о платеже
@@ -355,11 +283,19 @@ async def successful_payment_callback(update: Update, context: CallbackContext):
     months = payment.invoice_payload.split("_")[2]  # Извлекаем количество месяцев из payload (если это часть уникального payload)
 
     # Ответ пользователю
-    await update.message.reply_text(f"Платеж успешно выполнен! Ваш ID: {telegram_payment_charge_id}")
+    await update.message.reply_text(
+    f"🎉 Поздравляем! 🎉\n"
+    f"Ваш платёж успешно подтверждён! \n\n"
+    f"🔑 Мы уже обрабатываем заказ и создаём для вас личные настройки.\n"
+    f"👉 **ID платежа:** {telegram_payment_charge_id}\n\n"
+    f"🕒 Создание QR занимает не более 1 минуты.\n\n"
+    f"Большое спасибо за ваш заказ! 🚀"
+)
+
 
     # Вызываем функцию для генерации конфигурации VPN
     try:
-        await generate_vpn_config(user_id, months, update)
+        await generate_vpn_config(user_id, months, update, context)
         logging.info(f"VPN конфигурация сгенерирована для пользователя {user_id} на {months} месяцев.")
     except Exception as e:
         logging.error(f"Ошибка при генерации конфигурации VPN для пользователя {user_id}: {e}")
@@ -551,47 +487,91 @@ async def demo_version(query, context) -> None:
 #         await query.edit_message_text("Не удалось получить баланс. Попробуйте позже.")
 
 
+# async def handle_generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """
+#     Обработчик команды /generate для генерации VPN-конфигурации.
+#     """
+#     user_id = update.effective_user.id
+#     months = 1  # По умолчанию задаем 1 месяц
 
-async def generate_vpn_config(user_id: int, months: int, query):
-    # Формируем запрос для создания VPN-конфигурации
+#     try:
+#         # Логируем запрос
+#         logging.info(f"Пользователь {user_id} запросил генерацию VPN на {months} месяц.")
+
+#         # Вызываем функцию генерации конфигурации
+#         await generate_vpn_config(user_id, months, update, context)
+
+#     except Exception as e:
+#         logging.error(f"Ошибка в обработчике команды /generate: {e}")
+#         await context.bot.send_message(
+#             chat_id=update.effective_chat.id,
+#             text="Произошла ошибка при обработке вашего запроса. Попробуйте позже."
+#         )
+
+
+async def generate_vpn_config(user_id: int, months: int, update, context):
+    """
+    Генерация VPN-конфигурации для пользователя на указанное количество месяцев.
+    """
+    # Логирование информации
     logging.info(f"Генерация VPN-конфигурации для пользователя {user_id} на {months} месяцев.")
-    
-    # Отправляем POST запрос для создания конфигурации VPN
+
+    # Отправляем POST-запрос на сервер
     response = requests.post(
         f"{service_host}/wp-json/wireguard-service/generate-config",
         json={"id": user_id, "months": months}
     )
-    
+
+    logging.info(f"Ответ от API: {response.json()}")
+
+    # Проверяем успешность ответа
     if response.status_code == 200:
         data = response.json()
 
         if data.get("status") == "success":
-            vpn_config = data.get("vpn_config")  # Получаем конфигурацию
-            qr_code_url = data.get("qr_code_url")  # Получаем URL для QR-кода
-            
-            if vpn_config and qr_code_url:
-                # Отправляем пользователю конфигурацию и QR-код
-                keyboard = [
-                    [InlineKeyboardButton("Скачать конфигурацию", url=vpn_config)],
-                    [InlineKeyboardButton("QR код", url=qr_code_url)],
-                    [InlineKeyboardButton("Назад", callback_data='back_to_main')]
-                ]
-                
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                await query.edit_message_text(
-                    f"Конфигурация VPN на {months} месяц(ев) создана успешно. Используйте конфигурацию или сканируйте QR-код.",
-                    reply_markup=reply_markup
+            # Получаем URL QR-кода и инструкцию
+            qr_code_url = data.get("qr_code_url")
+            instruction_url = "https://payway.store/vpn/"  # Ссылка на инструкцию
+
+            if qr_code_url:
+                # Отправляем сообщение об успешной генерации
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="Конфигурация VPN успешно создана!"
+                )
+                await context.bot.send_photo(
+                    chat_id=update.effective_chat.id,
+                    photo=qr_code_url,
+                    caption=f"Инструкция, как использовать QR-код. Читайте тут: {instruction_url}"
                 )
             else:
-                logging.error("Не удалось получить конфигурацию или QR-код.")
-                await query.edit_message_text("Произошла ошибка при создании конфигурации VPN. Попробуйте позже.")
+                logging.error("Не удалось получить URL QR-кода.")
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="Произошла ошибка при создании конфигурации VPN. Попробуйте позже."
+                )
         else:
-            # Обработка ошибок, если статус не 'success'
+            # Обработка ошибок от сервера
             error_message = data.get("message", "Неизвестная ошибка.")
-            await query.edit_message_text(f"Ошибка: {error_message}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"Ошибка: {error_message}"
+            )
     else:
+        # Обработка сетевых ошибок
         logging.error("Не удалось отправить запрос на создание конфигурации VPN.")
-        await query.edit_message_text("Не удалось создать конфигурацию VPN. Попробуйте позже.")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Не удалось создать конфигурацию VPN. Попробуйте позже."
+        )
+
+    # Кнопка "Назад" в главное меню
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Вернуться в главное меню",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Назад", callback_data='back_to_main')]])
+    )
+
 
 
 # Обработка списка VPN
@@ -816,6 +796,7 @@ def main() -> None:
     application.add_handler(CommandHandler("buy", buy))
     application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
     application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+    # application.add_handler(CommandHandler("generate", handle_generate_command))
 
     # application.add_handler(CommandHandler("test_vpn", test_vpn_command))
 
